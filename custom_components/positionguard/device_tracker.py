@@ -181,7 +181,7 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
             return {}
 
         area = member.get("current_area")
-        attrs: dict[str, Any] = {
+        return {
             "group_id": self._group_id,
             "group_name": self._group_name,
             "user_id": self._user_id,
@@ -190,13 +190,8 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
             "area": area["name"] if area else None,
             "area_id": area["id"] if area else None,
             "last_update": member.get("last_update"),
+            "sharing_status": "disabled" if member.get("sharing_disabled") else "active",
         }
-        # Include sharing state so dashboard cards can show "Not sharing".
-        if member.get("sharing_disabled"):
-            attrs["sharing_status"] = "disabled"
-        else:
-            attrs["sharing_status"] = "active"
-        return attrs
 
     @property
     def device_info(self) -> dict[str, Any]:
