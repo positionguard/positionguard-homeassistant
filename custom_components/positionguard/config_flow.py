@@ -6,10 +6,10 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.const import CONF_API_KEY
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers import selector
 
 from .api import (
     PositionGuardAPIError,
@@ -17,6 +17,7 @@ from .api import (
     PositionGuardClient,
 )
 from .const import (
+    CONF_API_KEY,
     CONF_BASE_URL,
     CONF_GROUP_IDS,
     DEFAULT_BASE_URL,
@@ -31,9 +32,9 @@ STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_API_KEY): str,
         vol.Optional(CONF_BASE_URL, default=DEFAULT_BASE_URL): str,
-    }
+    },
+    extra=vol.ALLOW_EXTRA,
 )
-
 
 class PositionGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Two-step config flow.
@@ -118,16 +119,20 @@ class PositionGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     },
                 )
 
-        # Build a dropdown mapping group_id -> "Group Name (X members)".
-        group_options = {
-            g["id"]: g["name"] for g in self._groups
-        }
+        # Build selector options for the multi-select.
+        group_options_list = [
+            selector.SelectOptionDict(value=g["id"], label=g["name"])
+            for g in self._groups
+        ]
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_GROUP_IDS): vol.All(
-                    vol.Coerce(list),
-                    [vol.In(group_options)],
+                vol.Required(CONF_GROUP_IDS): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=group_options_list,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
                 )
             }
         )
@@ -182,14 +187,19 @@ class PositionGuardOptionsFlow(config_entries.OptionsFlow):
             _LOGGER.error("Failed to fetch groups for options flow: %s", err)
             return self.async_abort(reason="cannot_connect")
 
-        group_options = {g["id"]: g["name"] for g in groups}
-        current = self.config_entry.data.get(CONF_GROUP_IDS, [])
+        group_options_list = [
+            selector.SelectOptionDict(value=g["id"], label=g["name"])
+            for g in groups
+        ]
 
         schema = vol.Schema(
             {
-                vol.Required(CONF_GROUP_IDS, default=current): vol.All(
-                    vol.Coerce(list),
-                    [vol.In(group_options)],
+                vol.Required(CONF_GROUP_IDS, default=current): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=group_options_list,
+                        multiple=True,
+                        mode=selector.SelectSelectorMode.LIST,
+                    )
                 )
             }
         )

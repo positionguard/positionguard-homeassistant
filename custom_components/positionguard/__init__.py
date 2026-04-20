@@ -4,12 +4,18 @@ from __future__ import annotations
 import logging
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_API_KEY, Platform
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import PositionGuardClient
-from .const import CONF_BASE_URL, CONF_GROUP_IDS, DEFAULT_BASE_URL, DOMAIN
+from .const import (
+    CONF_API_KEY,
+    CONF_BASE_URL,
+    CONF_GROUP_IDS,
+    DEFAULT_BASE_URL,
+    DOMAIN,
+)
 from .coordinator import PositionGuardCoordinator
 
 _LOGGER = logging.getLogger(__name__)

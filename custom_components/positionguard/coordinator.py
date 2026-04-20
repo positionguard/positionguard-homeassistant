@@ -68,6 +68,7 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._group_info_cache: dict[str, dict[str, Any]] = {}
         # Same for areas (also rarely change).
         self._areas_cache: dict[str, list[dict[str, Any]]] = {}
+        self._update_cycle = 0
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch the current data.
@@ -75,6 +76,7 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         Called every `update_interval`. Raising UpdateFailed marks entities as
         unavailable until the next successful poll.
         """
+        self._update_cycle += 1
         try:
             # Refresh the groups list first — catches newly joined groups and
             # also picks up if the user was removed from a selected group.
@@ -118,10 +120,5 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(f"error fetching data: {err}") from err
 
     def _should_refresh_areas(self) -> bool:
-        """Refresh areas roughly every 10 poll cycles.
-
-        Naive cycle counter — good enough for V1.
-        """
-        # update_count is incremented by DataUpdateCoordinator automatically
-        # after each successful update. We refresh when it's divisible by 10.
-        return self.update_count > 0 and (self.update_count % 10 == 0)
+        """Refresh areas roughly every 10 poll cycles."""
+        return self._update_cycle > 0 and (self._update_cycle % 10 == 0)
