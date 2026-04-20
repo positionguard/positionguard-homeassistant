@@ -1,0 +1,45 @@
+{
+    "config": {
+      "step": {
+        "user": {
+          "title": "Connect to PositionGuard",
+          "description": "Enter your API key to continue. See {docs_url} for how to obtain a key.",
+          "data": {
+            "api_key": "API key",
+            "base_url": "API base URL (advanced)"
+          }
+        },
+        "groups": {
+          "title": "Select groups",
+          "description": "Found {group_count} group(s) on your account. Pick which to integrate.",
+          "data": {
+            "group_ids": "Groups"
+          }
+        }
+      },
+      "error": {
+        "invalid_format": "API key must start with pg_live_",
+        "invalid_auth": "The API key is invalid or revoked.",
+        "cannot_connect": "Failed to connect to PositionGuard. Check network or base URL.",
+        "no_groups": "Your account has no groups. Create one in the PositionGuard iOS app first.",
+        "no_selection": "Please pick at least one group."
+      },
+      "abort": {
+        "already_configured": "This API key is already configured."
+      }
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "Reconfigure PositionGuard",
+          "description": "Change which groups are integrated.",
+          "data": {
+            "group_ids": "Groups"
+          }
+        }
+      },
+      "abort": {
+        "cannot_connect": "Failed to reach PositionGuard. Try again later."
+      }
+    }
+  }
