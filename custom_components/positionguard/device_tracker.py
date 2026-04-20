@@ -113,8 +113,20 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
 
     @property
     def available(self) -> bool:
-        """Entity is available while the coordinator has data for this member."""
-        return super().available and self._member is not None
+        """Entity is unavailable if member disappeared from API or sharing is off.
+
+        Marking unavailable (rather than not_home) when sharing is disabled
+        prevents HA automations that trigger on home/not_home transitions
+        from firing when a user simply pauses sharing.
+        """
+        if not super().available:
+            return False
+        member = self._member
+        if member is None:
+            return False
+        if member.get("sharing_disabled"):
+            return False
+        return True
 
     @property
     def name(self) -> str | None:
@@ -163,13 +175,13 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        """Extra data exposed for automations."""
+        """Extra data exposed for automations and dashboards."""
         member = self._member
         if not member:
             return {}
 
         area = member.get("current_area")
-        return {
+        attrs: dict[str, Any] = {
             "group_id": self._group_id,
             "group_name": self._group_name,
             "user_id": self._user_id,
@@ -179,6 +191,12 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
             "area_id": area["id"] if area else None,
             "last_update": member.get("last_update"),
         }
+        # Include sharing state so dashboard cards can show "Not sharing".
+        if member.get("sharing_disabled"):
+            attrs["sharing_status"] = "disabled"
+        else:
+            attrs["sharing_status"] = "active"
+        return attrs
 
     @property
     def device_info(self) -> dict[str, Any]:
