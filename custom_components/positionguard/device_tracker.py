@@ -146,18 +146,55 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
         """We treat presence as GPS-like for HA categorization."""
         return SourceType.GPS
 
+    def _current_area_record(self) -> dict[str, Any] | None:
+        """Look up the full area record for the member's current area.
+
+        The member's current_area dict only has id/name; area coordinates
+        come from the group's areas list (cached by coordinator).
+        """
+        member = self._member
+        if not member or not member.get("inside"):
+            return None
+        current = member.get("current_area")
+        if not current:
+            return None
+        group_data = (self.coordinator.data or {}).get("groups", {}).get(self._group_id)
+        if not group_data:
+            return None
+        for a in group_data.get("areas", []):
+            if a.get("id") == current.get("id"):
+                return a
+        return None
+
     @property
     def latitude(self) -> float | None:
-        """Not exposed in V1. Returning None keeps map widgets neutral.
+        """Area centroid latitude when inside; None otherwise.
 
-        V2 could expose area centroids or actual last-known GPS if we add
-        that data to the API.
+        Returns the center of the area rather than the user's actual GPS
+        position. This respects PositionGuard's privacy model — only
+        area-level granularity is revealed.
         """
-        return None
+        area = self._current_area_record()
+        return area.get("latitude") if area else None
 
     @property
     def longitude(self) -> float | None:
-        return None
+        """Area centroid longitude. See latitude."""
+        area = self._current_area_record()
+        return area.get("longitude") if area else None
+
+    @property
+    def location_accuracy(self) -> int:
+        """Location uncertainty in meters — the area's radius.
+
+        HA's map card uses this to render an uncertainty circle. For us
+        it accurately represents 'we know this person is somewhere in
+        this area' without pinpointing their exact position.
+        """
+        area = self._current_area_record()
+        if area and area.get("radius_meters"):
+            return int(area["radius_meters"])
+        return 0
 
     @property
     def location_name(self) -> str | None:
