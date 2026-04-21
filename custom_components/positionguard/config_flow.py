@@ -151,20 +151,20 @@ class PositionGuardConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,
     ) -> "PositionGuardOptionsFlow":
-        """Return the options flow for existing entries."""
-        return PositionGuardOptionsFlow(config_entry)
+        """Return the options flow for existing entries.
+
+        HA auto-populates self.config_entry on the returned instance;
+        we don't pass it in.
+        """
+        return PositionGuardOptionsFlow()
 
 
 class PositionGuardOptionsFlow(config_entries.OptionsFlow):
     """Options flow: lets users reconfigure which groups are selected.
 
-    Triggered by the 'Configure' button on the integration's card in HA UI.
-    Does NOT re-prompt for API key — just group selection.
+    Note: self.config_entry is auto-populated by Home Assistant (2024.12+).
+    We don't set it ourselves.
     """
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Store the entry we're reconfiguring."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
