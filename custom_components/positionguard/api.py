@@ -48,10 +48,12 @@ class PositionGuardClient:
     async def _get(self, path: str) -> Any:
         """Internal GET helper. Handles common error cases."""
         url = f"{self._base_url}{path}"
+        _LOGGER.debug("GET %s", url)
         try:
             async with self._session.get(
                 url, headers=self._headers, timeout=aiohttp.ClientTimeout(total=10)
             ) as resp:
+                _LOGGER.debug("Response status %d for %s", resp.status, url)
                 if resp.status == 401:
                     raise PositionGuardAuthError("invalid or revoked API key")
                 if resp.status == 404:
