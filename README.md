@@ -9,6 +9,8 @@ Built for Home Assistant users who want reliable family presence
 detection without handing their family's location data to third-party
 services.
 
+![PositionGuard family dashboard](docs/images/dashboard-hero.png)
+
 ---
 
 ## What's different about this
@@ -45,6 +47,11 @@ following entities per family member:
 Each entity exposes useful attributes including `area` (the specific
 area within the group, if any) and `sharing_status` (`active` or
 `disabled`).
+
+The integration creates one device per group with all member entities,
+visible under Settings → Devices & Services → PositionGuard:
+
+![PositionGuard device page in Home Assistant](docs/images/device-page.png)
 
 ---
 
@@ -106,11 +113,16 @@ account and family), the developer portal (to mint an API key), and HACS
 1. Go to **Settings → Devices & Services → Add Integration**.
 2. Search for "PositionGuard" and select it.
 3. Paste your API key.
+
+![PositionGuard config flow API key entry](docs/images/config-flow.png)
+
 4. Select which group(s) you want to expose to Home Assistant. You can
    select multiple groups (Family, Work, Activity groups, etc.). Each
    becomes a separate device with its own member entities.
 5. Done. Your family members will appear as `device_tracker` entities
    within ~30 seconds.
+   
+
 
 ### Manual installation (without HACS)
 
@@ -361,6 +373,11 @@ alerts:
 The first variant fires only on arrivals at a specific area. The second
 fires on any state transition (arrival or departure) and includes the
 state in the message.
+
+In practice, this looks like:
+
+![AlertTicker rendering a PositionGuard presence event](docs/images/alertticker-example.png)
+
 
 ---
 
