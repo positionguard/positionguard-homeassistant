@@ -60,7 +60,11 @@ visible under Settings → Devices & Services → PositionGuard:
 - **Home Assistant**: 2026.3 or later (required for proper icon
   rendering)
 - **PositionGuard app**: latest version on iOS App Store
-  ([download](https://apps.apple.com/app/id6758687496))
+  ([download](https://apps.apple.com/app/id6758687496)). Android
+  support is in beta — if you want to participate, mention it in
+  the
+  [Discussions](https://github.com/positionguard/positionguard-homeassistant/discussions)
+  tab.
 - **HACS**: recommended for installation, though manual install is
   supported
 
@@ -392,16 +396,19 @@ This integration is **read-only**. From Home Assistant, you cannot:
 These actions remain in the PositionGuard app where group members can
 manage their own privacy directly.
 
-The integration polls the PositionGuard API at a regular interval
-(typically every 30 seconds). State changes in the app may take up to
-that interval to reflect in Home Assistant.
+The integration polls the PositionGuard API every 30 seconds. Position
+changes typically reflect in Home Assistant within 30–60 seconds of
+the actual change.
 
 ---
 
-## Issues and contributing
+## Questions, feedback, bug reports
 
-Bug reports and feature requests welcome via
-[GitHub Issues](https://github.com/positionguard/positionguard-homeassistant/issues).
+Use the
+[Discussions](https://github.com/positionguard/positionguard-homeassistant/discussions)
+tab for questions or feedback, and
+[Issues](https://github.com/positionguard/positionguard-homeassistant/issues)
+for bug reports.
 
-For questions about PositionGuard the app or developer portal, see
-[positionguardai.com](https://positionguardai.com).
+For information about PositionGuard the app or the developer portal,
+visit [positionguardai.com](https://positionguardai.com).
