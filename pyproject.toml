@@ -1,0 +1,6 @@
+# Test configuration for the PositionGuard integration.
+# This repo ships a Home Assistant custom component (not a pip package); this
+# file exists only to configure pytest for the test suite under ``tests/``.
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

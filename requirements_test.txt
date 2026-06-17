@@ -1,0 +1,13 @@
+# Test dependencies for the PositionGuard integration.
+#
+# pytest-homeassistant-custom-component is the Home Assistant-standard test
+# harness; it pulls in a matching Home Assistant (plus pytest, pytest-asyncio,
+# and the HA test helpers).
+#
+# This pin (0.13.316, the latest published at time of writing) resolves
+# Home Assistant 2026.2.3. The manifest/hacs.json floor of 2026.3 is a runtime
+# requirement for brand-icon rendering and is not exercised by these coordinator
+# tests; the DataUpdateCoordinator behavior under test is unchanged across
+# 2026.2/2026.3. Bump this pin to the first release that bundles HA >= 2026.3
+# once one is published.
+pytest-homeassistant-custom-component==0.13.316
