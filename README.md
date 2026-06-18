@@ -37,7 +37,7 @@ following entities per family member:
 
 - **`device_tracker.<member>_in_<group>`** — whole-group presence.
   States: `home` (member is in any area belonging to this group),
-  `not_home` (member is outside all group areas), `unknown` (sharing
+  `not_home` (member is outside all group areas), `unavailable` (sharing
   paused).
 - **`binary_sensor.<member>_at_<area>`** — per-area presence, one per
   (member, area) combination. State `on` (in this specific area), `off`
@@ -47,6 +47,11 @@ following entities per family member:
 Each entity exposes useful attributes including `area` (the specific
 area within the group, if any) and `sharing_status` (`active` or
 `disabled`).
+
+Both paused sharing and a temporary inability to reach PositionGuard render
+the entity `unavailable`. To distinguish the two in an automation, check the
+`sharing_status` attribute (`disabled` means the member paused sharing)
+rather than the entity state alone.
 
 The integration creates one device per group with all member entities,
 visible under Settings → Devices & Services → PositionGuard:
