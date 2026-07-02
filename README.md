@@ -65,13 +65,29 @@ visible under Settings → Devices & Services → PositionGuard:
 - **Home Assistant**: 2026.3 or later (required for proper icon
   rendering)
 - **PositionGuard app**: latest version on iOS App Store
-  ([download](https://apps.apple.com/app/id6758687496)). Android
-  support is in beta — if you want to participate, mention it in
-  the
-  [Discussions](https://github.com/positionguard/positionguard-homeassistant/discussions)
-  tab.
+  ([download](https://apps.apple.com/app/id6758687496)). Android support is in open beta on [Google Play](https://play.google.com/store/apps/details?id=com.positionguard.app) 
+  (US and Sweden for now). If you're in another region or the beta is full, mention it in the [Discussions](https://github.com/positionguard/positionguard-homeassistant/discussions)
+  tab and I'll help you get access.
 - **HACS**: recommended for installation, though manual install is
   supported
+
+---
+
+## Account and usage limits
+
+The integration requires a PositionGuard account (free) and an API key from 
+[dev.positionguardai.com](https://dev.positionguardai.com).
+Free tier covers a typical household:
+
+Up to 3 groups
+Up to 3 areas per group
+Up to 10 members per group
+
+An optional paid tier on iOS raises these limits (unlimited groups and members, up to 20 
+areas per group) for larger setups. A typical family — one group, home/school/work areas, 
+everyone in it — fits comfortably in the free tier.
+The integration polls the PositionGuard API every 30 seconds per configured group, 
+which is well within the API's rate limits — no tuning needed.
 
 ---
 
@@ -83,8 +99,8 @@ account and family), the developer portal (to mint an API key), and HACS
 
 ### 1. Install the PositionGuard app and set up your family
 
-1. Install [PositionGuard](https://apps.apple.com/app/id6758687496)
-   from the App Store.
+1. Install PositionGuard from the [App Store](https://apps.apple.com/app/id6758687496)
+   or [Google Play](https://play.google.com/store/apps/details?id=com.positionguard.app).
 2. Sign in with your phone number (SMS verification).
 3. Create a family group. Default name is "Family"; rename if you like.
 4. Add areas to the group: at minimum a "Home" area centered on your
@@ -179,7 +195,7 @@ fire on paused users.
 
 The examples below use a sample LA family group with parents Fred and
 Sarah, and kids Peter, John, and Sally. Areas defined: Home, School,
-Grandma's House, Beach House.
+Grandma's House.
 
 ### Welcome someone home
 
