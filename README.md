@@ -167,6 +167,33 @@ preserved across updates — you won't see suffixes like `_2` appended
 to your existing entities.
 
 ---
+## Multi-instance / multi-site support
+
+The integration is architected to support multiple Home Assistant instances
+(e.g. main home + vacation property, or separate hubs at different
+locations) — each instance runs the integration independently, and family
+members only join the PositionGuard group once regardless of how many
+instances you run.
+
+**How it's expected to work:**
+- Each HA instance runs the integration independently (same or separate
+  API keys).
+- "Home" / present area can be configured differently per instance if
+  desired.
+- Family members set up the app once — no extra setup per instance on
+  their side.
+- The `currentArea` attribute gives visibility across all areas from any
+  instance.
+
+**Verified status:** confirmed working in multi-instance setups on
+Hubitat, using the same underlying architecture. I haven't personally run
+it across multiple HA instances yet, so I'm not calling this fully
+verified on HA — but the mechanism doesn't differ per platform, and early
+Hubitat feedback has been positive.
+
+If you're running a multi-site setup, I'd love to hear how it goes!
+
+---
 
 ## Privacy
 
