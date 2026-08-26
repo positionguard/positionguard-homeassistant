@@ -59,12 +59,15 @@ def make_member(
     inside: bool,
     area_id: str | None = None,
     sharing_disabled: bool = False,
+    safety_status: str | None = None,
+    safety_area: str | None = None,
+    position_age_seconds: int | None = None,
 ) -> dict[str, Any]:
     """A member record shaped like a GET /groups/{id}/members item."""
     current_area = None
     if inside and area_id is not None:
         current_area = {"id": area_id, "name": _AREA_NAMES.get(area_id, "Unknown")}
-    return {
+    record: dict[str, Any] = {
         "user_id": user_id,
         "nickname": nickname,
         "inside": inside,
@@ -73,3 +76,14 @@ def make_member(
         "avatar_url": None,
         "last_update": "2026-06-17T00:00:00Z",
     }
+    # The REST API omits the safety fields entirely (omitempty) when the
+    # server flag is off, the member is muted in the group, or the group is
+    # public — mirror that: absent keys, never nulls. A record without
+    # safety_status is how "the server can't say" arrives.
+    if safety_status is not None:
+        record["safety_status"] = safety_status
+        if safety_area is not None:
+            record["safety_area"] = safety_area
+        if position_age_seconds is not None:
+            record["position_age_seconds"] = position_age_seconds
+    return record

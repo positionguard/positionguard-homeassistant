@@ -217,7 +217,7 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
             return {}
 
         area = member.get("current_area")
-        return {
+        attrs = {
             "group_id": self._group_id,
             "group_name": self._group_name,
             "user_id": self._user_id,
@@ -228,6 +228,14 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
             "last_update": member.get("last_update"),
             "sharing_status": "disabled" if member.get("sharing_disabled") else "active",
         }
+        # Safety-zone fields ride along only when the server sent them — the
+        # API omits them (server flag off, member muted, public group), and an
+        # absent key states "unknown" more honestly than a null would.
+        # safety_status: at_area | in_zone | out_of_zone | stale.
+        for key in ("safety_status", "safety_area", "position_age_seconds"):
+            if key in member:
+                attrs[key] = member[key]
+        return attrs
 
     @property
     def device_info(self) -> dict[str, Any]:

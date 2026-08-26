@@ -1,10 +1,16 @@
 """Binary sensor platform for PositionGuard.
 
-Exposes one binary_sensor per (member, area) pair visible through selected groups.
-State is 'on' when the member is inside that specific area.
+Two kinds of binary sensor:
 
-All binary_sensors are disabled by default. Users enable only the specific
-(member, area) combinations they care about via the HA Entities page.
+* One per (member, area) pair visible through selected groups — 'on' when the
+  member is inside that specific area. Disabled by default (the spawn is
+  combinatorial); users enable the specific pairs they care about.
+
+* One "outside usual area" safety sensor per (group, member) — 'on' when the
+  server's safety status says the member is confirmed outside their own usual
+  area. Enabled by default: this is the one condition worth automating on
+  directly (a notification, an announcement), and its cardinality matches the
+  device_tracker's.
 """
 from __future__ import annotations
 
@@ -40,15 +46,30 @@ async def async_setup_entry(
     coordinator: PositionGuardCoordinator = hass.data[DOMAIN][entry.entry_id]
 
     known: set[tuple[str, str, str]] = set()  # (group_id, user_id, area_id)
-    entities: list[PositionGuardAreaPresence] = []
+    known_safety: set[tuple[str, str]] = set()  # (group_id, user_id)
+    entities: list[BinarySensorEntity] = []
 
-    def _collect_entities() -> list[PositionGuardAreaPresence]:
-        new: list[PositionGuardAreaPresence] = []
+    def _collect_entities() -> list[BinarySensorEntity]:
+        new: list[BinarySensorEntity] = []
         groups = (coordinator.data or {}).get("groups", {})
         for group_id, group_data in groups.items():
             member_ids = [m["user_id"] for m in group_data.get("members", [])]
             areas = group_data.get("areas", [])
             for user_id in member_ids:
+                # One safety sensor per (group, member) — spawned regardless of
+                # whether the current payload carries safety fields, so a
+                # server-side flag flip lights existing entities up rather than
+                # needing a reload. Until then they sit unavailable.
+                safety_key = (group_id, user_id)
+                if safety_key not in known_safety:
+                    known_safety.add(safety_key)
+                    new.append(
+                        PositionGuardOutsideUsualArea(
+                            coordinator=coordinator,
+                            group_id=group_id,
+                            user_id=user_id,
+                        )
+                    )
                 for area in areas:
                     key = (group_id, user_id, area["id"])
                     if key in known:
@@ -76,6 +97,121 @@ async def async_setup_entry(
             async_add_entities(new)
 
     entry.async_on_unload(coordinator.async_add_listener(_add_new))
+
+
+class PositionGuardOutsideUsualArea(
+    CoordinatorEntity[PositionGuardCoordinator], BinarySensorEntity
+):
+    """On when the server says a member is confirmed OUTSIDE their usual area.
+
+    'Usual area' is the member's own server-computed safety zone (their
+    visit-weighted cluster of saved places). The mapping is deliberately
+    strict so this can drive alert automations directly:
+
+    * on  — safety_status == "out_of_zone": a fresh position exists and it is
+            confirmed outside the member's usual area.
+    * off — at_area / in_zone: the member is somewhere expected. Also off for
+            "stale": no fresh position is NOT evidence of being outside, and a
+            phone dying in a pocket must not fire an outside-zone alarm. The
+            full status string is in the attributes for automations that want
+            to treat staleness separately.
+    * unavailable — the server sent no safety fields at all (feature flag off,
+            member muted in this group, public group, or an older server).
+            Absence of knowledge must never render as "safe".
+    """
+
+    _attr_attribution = ATTRIBUTION
+    _attr_has_entity_name = True
+    # SAFETY device class: 'on' renders as a problem state in HA, which is
+    # exactly the semantics — on means "outside their usual area".
+    _attr_device_class = BinarySensorDeviceClass.SAFETY
+
+    def __init__(
+        self,
+        coordinator: PositionGuardCoordinator,
+        group_id: str,
+        user_id: str,
+    ) -> None:
+        super().__init__(coordinator)
+        self._group_id = group_id
+        self._user_id = user_id
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_"
+            f"{group_id}_{user_id}_outside_usual_area"
+        )
+
+    @property
+    def _member(self) -> dict[str, Any] | None:
+        group = (self.coordinator.data or {}).get("groups", {}).get(self._group_id)
+        if not group:
+            return None
+        for m in group.get("members", []):
+            if m["user_id"] == self._user_id:
+                return m
+        return None
+
+    @property
+    def _group_name(self) -> str:
+        group = (self.coordinator.data or {}).get("groups", {}).get(self._group_id, {})
+        return group.get("info", {}).get("name", "Unknown Group")
+
+    @property
+    def available(self) -> bool:
+        """Unavailable when there is nothing trustworthy to report.
+
+        Member gone from the group, sharing paused, or the server sent no
+        safety fields — in every one of those, "off" would falsely read as
+        "safely inside their usual area".
+        """
+        if not super().available:
+            return False
+        member = self._member
+        if member is None:
+            return False
+        if member.get("sharing_disabled"):
+            return False
+        return "safety_status" in member
+
+    @property
+    def name(self) -> str:
+        member = self._member
+        nickname = (member or {}).get("nickname") or "Unknown"
+        return f"{nickname} outside usual area"
+
+    @property
+    def is_on(self) -> bool:
+        member = self._member or {}
+        return member.get("safety_status") == "out_of_zone"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        member = self._member or {}
+        attrs: dict[str, Any] = {
+            "group_id": self._group_id,
+            "group_name": self._group_name,
+            "user_id": self._user_id,
+            "nickname": member.get("nickname"),
+        }
+        for key in ("safety_status", "safety_area", "position_age_seconds"):
+            if key in member:
+                attrs[key] = member[key]
+        return attrs
+
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Same group 'device' the tracker and area sensors hang off."""
+        return {
+            "identifiers": {
+                (
+                    DOMAIN,
+                    f"{self.coordinator.config_entry.entry_id}_{self._group_id}",
+                )
+            },
+            "name": f"PositionGuard: {self._group_name}",
+            "manufacturer": MANUFACTURER,
+            "model": "Group",
+            "configuration_url": "https://positionguardai.com",
+        }
 
 
 class PositionGuardAreaPresence(
