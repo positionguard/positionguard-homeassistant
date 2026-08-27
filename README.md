@@ -46,18 +46,18 @@ following entities per family member:
 - **`binary_sensor.<member>_outside_usual_area`** — Safety Zone status,
   one per member per group. `on` exactly when PositionGuard has a fresh
   position for the member and it is **confirmed outside their usual
-  area** — the zone the server computes from that member's own saved
+  area** — the zone PositionGuard computes from that member's own saved
   places. `off` while they are at a saved place or inside their usual
   area, and also while their position is merely *stale*: a phone that
   has gone quiet is not evidence of being outside, so it never fires
   this alarm (the full status is in the `safety_status` attribute if
-  you want to automate on staleness separately). `unavailable` when the
-  server sends no safety data for the member — absence of knowledge is
-  never shown as "safe".
+  you want to automate on staleness separately). `unavailable` when
+  PositionGuard sends no safety data for the member — absence of
+  knowledge is never shown as "safe".
 
 Each entity exposes useful attributes including `area` (the specific
 area within the group, if any) and `sharing_status` (`active` or
-`disabled`). When the server provides Safety Zone data, three more ride
+`disabled`). When PositionGuard provides Safety Zone data, three more ride
 along: `safety_status` (`at_area` / `in_zone` / `out_of_zone` /
 `stale`), `safety_area` (the name of the member's own matched place,
 when you're allowed to see it), and `position_age_seconds`.
@@ -265,7 +265,7 @@ Two properties worth knowing before you trust it with announcements:
 a *stale* position never fires this (a phone dying in a pocket is not
 evidence of being outside — check the `safety_status` attribute for
 `stale` if you want a separate "no recent position" automation), and
-when the server has no safety data at all the sensor goes `unavailable`
+when PositionGuard has no safety data at all the sensor goes `unavailable`
 rather than pretending everything is fine.
 
 ### Welcome someone home
