@@ -41,6 +41,8 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     "info": { id, name, icon, group_type, ... },
                     "members": [ { user_id, nickname, inside, current_area, ... }, ... ],
                     "areas":   [ { id, name, latitude, longitude, radius_meters }, ... ],
+                    "area_counts": { "<area_id>": { area_id, area_name,
+                                     member_count, stale_count }, ... },
                 },
                 ...
             }
@@ -72,7 +74,9 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._group_ids = group_ids
         # Cache group info (rarely changes) so we don't re-fetch every cycle.
         self._group_info_cache: dict[str, dict[str, Any]] = {}
-        # Same for areas (also rarely change).
+        # Area GEOMETRY rarely changes, so it is cached and refreshed every 10
+        # cycles; the volatile per-area COUNTS come from a separate endpoint
+        # fetched every poll (see _fetch_once).
         self._areas_cache: dict[str, list[dict[str, Any]]] = {}
         self._update_cycle = 0
         # Consecutive failed cycles, for transient-failure toleration. Reset to
@@ -197,19 +201,40 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             # Members update every cycle — this is the main presence data.
             members = await self._client.list_group_members(gid)
 
-            # Areas are cached on first fetch; refresh every 10 cycles to
-            # catch new / renamed / removed areas without hammering the API.
+            # Area GEOMETRY rarely changes: cached on first fetch, refreshed
+            # every 10 cycles to catch new / renamed / removed areas without
+            # hammering the API.
             if gid not in self._areas_cache or self._should_refresh_areas():
                 self._areas_cache[gid] = await self._client.list_group_areas(gid)
+
+            # Per-area member/stale COUNTS are volatile — fetched every poll from
+            # the dedicated coordinate-free endpoint, keyed by area_id for the
+            # sensor's lookup. Degrades gracefully: if the endpoint is
+            # unavailable (an older backend that predates it, or a transient
+            # error) the counts are dropped for this cycle so the count sensors
+            # go unavailable — it must never fail the whole poll or spam the log,
+            # and members/geometry are unaffected. Auth errors still propagate.
+            area_counts: dict[str, dict[str, Any]] = {}
+            try:
+                counts_list = await self._client.list_group_area_counts(gid)
+                area_counts = {c["area_id"]: c for c in counts_list}
+            except (PositionGuardAPIError, asyncio.TimeoutError) as err:
+                _LOGGER.debug(
+                    "area-counts fetch failed for group %s (%s); count sensors "
+                    "unavailable this cycle",
+                    gid,
+                    err,
+                )
 
             result["groups"][gid] = {
                 "info": info,
                 "members": members,
                 "areas": self._areas_cache[gid],
+                "area_counts": area_counts,
             }
 
         return result
 
     def _should_refresh_areas(self) -> bool:
-        """Refresh areas roughly every 10 poll cycles."""
+        """Refresh area geometry roughly every 10 poll cycles."""
         return self._update_cycle > 0 and (self._update_cycle % 10 == 0)

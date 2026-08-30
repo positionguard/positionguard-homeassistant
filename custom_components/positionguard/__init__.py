@@ -20,9 +20,13 @@ from .coordinator import PositionGuardCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-# Which entity platforms this integration provides. For V1 we ship
-# device_tracker only. binary_sensor comes in V0.2.
-PLATFORMS: list[Platform] = [Platform.DEVICE_TRACKER, Platform.BINARY_SENSOR]
+# Which entity platforms this integration provides: device_tracker and
+# binary_sensor, plus sensor (per-area member counts).
+PLATFORMS: list[Platform] = [
+    Platform.DEVICE_TRACKER,
+    Platform.BINARY_SENSOR,
+    Platform.SENSOR,
+]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

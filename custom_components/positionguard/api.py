@@ -83,6 +83,16 @@ class PositionGuardClient:
         """GET /groups/{id}/areas — areas linked to a group."""
         return await self._get(f"/groups/{group_id}/areas")
 
+    async def list_group_area_counts(self, group_id: str) -> list[dict[str, Any]]:
+        """GET /groups/{id}/area-counts — per-area member/stale counts.
+
+        Coordinate-free by design (area_id + area_name + counts, no geometry).
+        Raises on a non-200 like the other calls, including the 404 an older
+        backend that predates this endpoint returns — the coordinator catches
+        that and degrades the count sensors rather than failing the poll.
+        """
+        return await self._get(f"/groups/{group_id}/area-counts")
+
     async def get_user_presence(self, user_id: str) -> dict[str, Any]:
         """GET /users/{id}/presence — areas a user is currently inside."""
         return await self._get(f"/users/{user_id}/presence")
