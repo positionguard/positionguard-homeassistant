@@ -76,6 +76,10 @@ def mock_client() -> MagicMock:
         ]
     )
     client.list_group_areas = AsyncMock(return_value=make_areas())
+    # The coordinator fetches per-area counts every poll; without an async stub
+    # here it stays a plain MagicMock and `await`-ing it raises, failing every
+    # test that refreshes. Empty is the graceful default (no area-count data).
+    client.list_group_area_counts = AsyncMock(return_value=[])
     return client
 
 
