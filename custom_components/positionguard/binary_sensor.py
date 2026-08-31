@@ -110,13 +110,15 @@ class PositionGuardOutsideUsualArea(
 
     * on  — safety_status == "out_of_zone": a fresh position exists and it is
             confirmed outside the member's usual area.
-    * off — at_area / in_zone: the member is somewhere expected. Also off for
-            "stale": no fresh position is NOT evidence of being outside, and a
-            phone dying in a pocket must not fire an outside-zone alarm. The
-            full status string is in the attributes for automations that want
-            to treat staleness separately.
-    * unavailable — the server sent no safety fields at all (feature flag off,
-            member muted in this group, public group, or an older server).
+    * off — at_area / in_zone: the member is somewhere expected.
+    * unavailable — the server sent no safety fields (feature flag off, member
+            muted in this group, public group, or an older server), OR
+            safety_status == "stale". "No recent position" is a different kind
+            of claim than inside/outside, so it maps to HA's native unavailable:
+            automations filter it like any unavailable entity, instead of the
+            Safe/Unsafe flap a stationary phone produced by dropping to "off".
+            A phone dying in a pocket must never render as "safe" nor fire an
+            outside-zone alarm. The raw status string stays in the attributes.
             Absence of knowledge must never render as "safe".
     """
 
@@ -170,7 +172,15 @@ class PositionGuardOutsideUsualArea(
             return False
         if member.get("sharing_disabled"):
             return False
-        return "safety_status" in member
+        if "safety_status" not in member:
+            return False
+        # Stale renders as unavailable, not "off". "No recent position" is a
+        # different KIND of claim than "inside their usual area" (off), so
+        # mapping it to HA's native unavailable lets automations filter it like
+        # any unavailable entity, instead of the Safe/Unsafe flap a stationary
+        # phone produced by dropping to "off". Rare once the server's 50-minute
+        # stale threshold lands; when it does show, the phone is genuinely dark.
+        return member.get("safety_status") != "stale"
 
     @property
     def name(self) -> str:

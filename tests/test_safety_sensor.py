@@ -4,7 +4,9 @@ The sensor's contract, pinned here:
 
   1. on  only for safety_status == "out_of_zone"
   2. off for at_area / in_zone
-  3. off for stale — no fresh position is not evidence of being outside
+  3. unavailable for stale — "no recent position" is a different kind of claim
+     than inside/outside; mapping it to HA-native unavailable lets automations
+     filter it instead of seeing a Safe/Unsafe flap. Never "off means safe".
   4. unavailable when the server sent no safety fields (flag off / muted
      member / public group / older server) — absence never reads as "safe"
   5. unavailable when sharing is paused
@@ -40,7 +42,6 @@ async def _refresh_with_member(coordinator, mock_client, member) -> None:
         ("out_of_zone", True),
         ("at_area", False),
         ("in_zone", False),
-        ("stale", False),
     ],
 )
 async def test_state_mapping(
@@ -60,6 +61,24 @@ async def test_state_mapping(
     assert sensor.available
     assert sensor.is_on is expect_on
     assert sensor.extra_state_attributes["safety_status"] == safety_status
+
+
+async def test_stale_is_unavailable(coordinator, mock_client) -> None:
+    """Stale -> unavailable, not 'off'. Absence of a fresh position must never
+    read as safely inside, and HA-native unavailable lets automations filter
+    the flap a stationary phone produced instead of seeing Safe/Unsafe bands."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=False,
+        safety_status="stale",
+        position_age_seconds=3600,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    assert not sensor.available
+    assert not sensor.is_on
 
 
 async def test_unavailable_without_safety_fields(coordinator, mock_client) -> None:
