@@ -14,6 +14,8 @@ HACS installs from GitHub releases; the version lives in
 - Availability is unchanged: the sensor is unavailable for `stale` only,
   never because `position_fresh` is `false`, so a held `at_area` stays
   available and off. A test pins this.
+- Docs: the README said a stale "outside usual area" sensor reads `off`;
+  since 0.3.2 it is `unavailable`. Corrected.
 
 ## 0.3.2
 

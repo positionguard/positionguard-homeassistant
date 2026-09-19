@@ -48,10 +48,11 @@ following entities per family member:
   position for the member and it is **confirmed outside their usual
   area** — the zone PositionGuard computes from that member's own saved
   places. `off` while they are at a saved place or inside their usual
-  area, and also while their position is merely *stale*: a phone that
-  has gone quiet is not evidence of being outside, so it never fires
-  this alarm (the full status is in the `safety_status` attribute if
-  you want to automate on staleness separately). `unavailable` when
+  area. `unavailable` while their position is *stale*: a phone that has
+  gone quiet is neither evidence of being outside nor of being safe, so
+  it never fires this alarm and never reads as `off` (the device
+  tracker's `safety_status` attribute reads `stale` if you want to
+  automate on staleness separately). Also `unavailable` when
   PositionGuard sends no safety data for the member — absence of
   knowledge is never shown as "safe".
 
