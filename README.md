@@ -57,10 +57,15 @@ following entities per family member:
 
 Each entity exposes useful attributes including `area` (the specific
 area within the group, if any) and `sharing_status` (`active` or
-`disabled`). When PositionGuard provides Safety Zone data, three more ride
+`disabled`). When PositionGuard provides Safety Zone data, more ride
 along: `safety_status` (`at_area` / `in_zone` / `out_of_zone` /
 `stale`), `safety_area` (the name of the member's own matched place,
-when you're allowed to see it), and `position_age_seconds`.
+when you're allowed to see it), `position_age_seconds`, and
+`position_fresh`. `position_fresh` is `false` while PositionGuard holds a
+quiet phone at the saved place it was last confirmed in: `safety_status`
+stays `at_area` and the sensor stays available, so check `position_fresh`
+in automations that need "there right now". Servers that don't send it
+leave the attribute out.
 
 Both paused sharing and a temporary inability to reach PositionGuard render
 the entity `unavailable`. To distinguish the two in an automation, check the
