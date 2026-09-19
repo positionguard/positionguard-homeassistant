@@ -1,4 +1,14 @@
 {
+  "entity": {
+    "binary_sensor": {
+      "outside_usual_area": {
+        "state": {
+          "off": "Inside",
+          "on": "Outside"
+        }
+      }
+    }
+  },
     "config": {
       "step": {
         "user": {

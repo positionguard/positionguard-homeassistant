@@ -6,9 +6,10 @@ The sensor's contract, pinned here:
   2. off for at_area / in_zone
   3. unavailable for stale — "no recent position" is a different kind of claim
      than inside/outside; mapping it to HA-native unavailable lets automations
-     filter it instead of seeing a Safe/Unsafe flap. Never "off means safe".
+     filter it instead of seeing an Inside/Outside flap. Never "off means
+     inside".
   4. unavailable when the server sent no safety fields (flag off / muted
-     member / public group / older server) — absence never reads as "safe"
+     member / public group / older server) — absence never reads as "Inside"
   5. unavailable when sharing is paused
   6. the device_tracker carries the safety fields as attributes when present,
      and omits them when the server did
@@ -70,8 +71,9 @@ async def test_state_mapping(
 
 async def test_stale_is_unavailable(coordinator, mock_client) -> None:
     """Stale -> unavailable, not 'off'. Absence of a fresh position must never
-    read as safely inside, and HA-native unavailable lets automations filter
-    the flap a stationary phone produced instead of seeing Safe/Unsafe bands."""
+    read as inside their usual area, and HA-native unavailable lets automations
+    filter the flap a stationary phone produced instead of Inside/Outside
+    bands."""
     member = make_member(
         FRED_ID,
         "Fred",
@@ -87,7 +89,7 @@ async def test_stale_is_unavailable(coordinator, mock_client) -> None:
 
 
 async def test_unavailable_without_safety_fields(coordinator, mock_client) -> None:
-    """No safety fields from the server -> unavailable, never 'off means safe'."""
+    """No safety fields from the server -> unavailable, never 'off means inside'."""
     member = make_member(FRED_ID, "Fred", inside=True, area_id=HOME_AREA_ID)
     await _refresh_with_member(coordinator, mock_client, member)
 
@@ -263,3 +265,65 @@ async def test_tracker_stays_available_when_stale(coordinator, mock_client) -> N
     assert attrs["safety_status"] == "stale"
     assert attrs["position_fresh"] is False
     assert attrs["position_age_seconds"] == 4200
+
+
+async def test_sensor_is_display_only_no_device_class(coordinator, mock_client) -> None:
+    """The SAFETY device class is gone (it rendered on/off as "Unsafe"/"Safe",
+    a judgement this product does not make), and nothing else moved with it:
+    the unique_id and the on/off mapping are what they were, so existing
+    entity ids, history and automations are untouched. The new labels come
+    from translation_key via translations/en.json, which is display only."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=False,
+        safety_status="out_of_zone",
+        position_age_seconds=60,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    assert sensor.device_class is None
+    assert sensor.translation_key == "outside_usual_area"
+    assert sensor.unique_id == (
+        f"{coordinator.config_entry.entry_id}_{GROUP_ID}_{FRED_ID}_outside_usual_area"
+    )
+    assert sensor.is_on is True
+
+    # Same entity, member back inside a saved place: off, same unique_id.
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=True,
+        area_id=HOME_AREA_ID,
+        safety_status="at_area",
+        position_age_seconds=60,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+    assert sensor.is_on is False
+    assert sensor.available
+    assert sensor.unique_id == (
+        f"{coordinator.config_entry.entry_id}_{GROUP_ID}_{FRED_ID}_outside_usual_area"
+    )
+
+
+def test_state_labels_and_icons_are_registered() -> None:
+    """The labels and icons HA reads for a custom integration: it loads
+    translations/<lang>.json (strings.json is the source copy, not read at
+    runtime) and icons.json, both keyed by translation_key. Icons are plain
+    map markers — no alert or warning glyph."""
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent / "custom_components" / "positionguard"
+    key = "outside_usual_area"
+    for name in ("translations/en.json", "strings.json"):
+        states = json.loads((root / name).read_text())["entity"]["binary_sensor"][key]["state"]
+        assert states == {"off": "Inside", "on": "Outside"}, name
+
+    icons = json.loads((root / "icons.json").read_text())["entity"]["binary_sensor"][key]
+    assert icons["default"] == "mdi:map-marker-radius"
+    assert icons["state"]["on"] == "mdi:map-marker-outline"
+    rendered = [icons["default"], *icons["state"].values()]
+    assert all(i.startswith("mdi:map-marker") for i in rendered), rendered
+    assert not any(w in i for i in rendered for w in ("alert", "warning", "danger")), rendered

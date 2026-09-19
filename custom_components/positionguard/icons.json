@@ -1,0 +1,12 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "outside_usual_area": {
+        "default": "mdi:map-marker-radius",
+        "state": {
+          "on": "mdi:map-marker-outline"
+        }
+      }
+    }
+  }
+}

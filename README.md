@@ -49,12 +49,13 @@ following entities per family member:
   area** — the zone PositionGuard computes from that member's own saved
   places. `off` while they are at a saved place or inside their usual
   area. `unavailable` while their position is *stale*: a phone that has
-  gone quiet is neither evidence of being outside nor of being safe, so
-  it never fires this alarm and never reads as `off` (the device
-  tracker's `safety_status` attribute reads `stale` if you want to
-  automate on staleness separately). Also `unavailable` when
-  PositionGuard sends no safety data for the member — absence of
-  knowledge is never shown as "safe".
+  gone quiet is no evidence either way, so it never fires this alarm and
+  never reads as `off` (the device tracker's `safety_status` attribute
+  reads `stale` if you want to automate on staleness separately). Also
+  `unavailable` when PositionGuard sends no safety data for the member —
+  absence of knowledge is never shown as being inside. In the UI the two
+  states read **Outside** and **Inside**; the state itself stays `on` /
+  `off`, which is what automations and history use.
 
 Each entity exposes useful attributes including `area` (the specific
 area within the group, if any) and `sharing_status` (`active` or
@@ -269,10 +270,10 @@ automation:
 
 Two properties worth knowing before you trust it with announcements:
 a *stale* position never fires this (a phone dying in a pocket is not
-evidence of being outside — check the `safety_status` attribute for
-`stale` if you want a separate "no recent position" automation), and
-when PositionGuard has no safety data at all the sensor goes `unavailable`
-rather than pretending everything is fine.
+evidence of being outside — check the device tracker's `safety_status`
+attribute for `stale` if you want a separate "no recent position"
+automation), and when PositionGuard has no safety data at all the sensor
+goes `unavailable` rather than claiming the member is inside.
 
 ### Welcome someone home
 

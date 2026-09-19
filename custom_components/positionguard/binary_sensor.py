@@ -116,10 +116,10 @@ class PositionGuardOutsideUsualArea(
             safety_status == "stale". "No recent position" is a different kind
             of claim than inside/outside, so it maps to HA's native unavailable:
             automations filter it like any unavailable entity, instead of the
-            Safe/Unsafe flap a stationary phone produced by dropping to "off".
-            A phone dying in a pocket must never render as "safe" nor fire an
-            outside-zone alarm. The raw status string stays in the attributes.
-            Absence of knowledge must never render as "safe".
+            Inside/Outside flap a stationary phone produced by dropping to
+            "off". A phone dying in a pocket must never render as "Inside" nor
+            fire an outside-zone alarm. The raw status string stays in the
+            attributes. Absence of knowledge must never render as "Inside".
 
     Area hold: a server with SAFETY_STATUS_AREA_HOLD keeps at_area through a
     phone's silence and sends position_fresh false with the true age. That
@@ -131,9 +131,13 @@ class PositionGuardOutsideUsualArea(
 
     _attr_attribution = ATTRIBUTION
     _attr_has_entity_name = True
-    # SAFETY device class: 'on' renders as a problem state in HA, which is
-    # exactly the semantics — on means "outside their usual area".
-    _attr_device_class = BinarySensorDeviceClass.SAFETY
+    # No device class on purpose. BinarySensorDeviceClass.SAFETY made HA render
+    # on/off as "Unsafe"/"Safe" — a judgement this product does not make. The
+    # fact is "outside their usual area", nothing more. translation_key gives
+    # the states their own labels (Outside / Inside) through
+    # translations/en.json, and neutral icons through icons.json. Display only:
+    # the state is still on/off, so automations are untouched.
+    _attr_translation_key = "outside_usual_area"
 
     def __init__(
         self,
@@ -169,8 +173,8 @@ class PositionGuardOutsideUsualArea(
         """Unavailable when there is nothing trustworthy to report.
 
         Member gone from the group, sharing paused, or the server sent no
-        safety fields — in every one of those, "off" would falsely read as
-        "safely inside their usual area".
+        safety fields — in every one of those, "off" ("Inside") would falsely
+        read as "inside their usual area".
         """
         if not super().available:
             return False
@@ -184,7 +188,7 @@ class PositionGuardOutsideUsualArea(
         # Stale renders as unavailable, not "off". "No recent position" is a
         # different KIND of claim than "inside their usual area" (off), so
         # mapping it to HA's native unavailable lets automations filter it like
-        # any unavailable entity, instead of the Safe/Unsafe flap a stationary
+        # any unavailable entity, instead of the Inside/Outside flap a stationary
         # phone produced by dropping to "off". Rare once the server's 50-minute
         # stale threshold lands; when it does show, the phone is genuinely dark.
         # Deliberately NOT position_fresh: a held at_area (position_fresh false)
