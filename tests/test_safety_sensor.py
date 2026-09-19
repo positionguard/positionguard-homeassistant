@@ -12,6 +12,11 @@ The sensor's contract, pinned here:
   5. unavailable when sharing is paused
   6. the device_tracker carries the safety fields as attributes when present,
      and omits them when the server did
+  7. a held at_area (position_fresh false, the server's area hold) stays
+     AVAILABLE and off — availability follows "stale", never position_fresh,
+     or the flap the hold removes comes back; position_fresh rides along as
+     an attribute on both entities, and is absent (not False) when the server
+     didn't send it
 """
 from __future__ import annotations
 
@@ -150,3 +155,85 @@ async def test_tracker_attributes_carry_safety_fields(
     attrs = tracker.extra_state_attributes
     assert "safety_status" not in attrs
     assert "safety_area" not in attrs
+
+
+async def test_held_at_area_stays_available(coordinator, mock_client) -> None:
+    """Pins the availability rule against the area hold: at_area with
+    position_fresh False (36,000 s old) is available and off, not unavailable.
+    Tying availability to position_fresh would bring back the at_area <->
+    unavailable flap the server's hold exists to remove."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=True,
+        area_id=HOME_AREA_ID,
+        safety_status="at_area",
+        safety_area="Home",
+        position_age_seconds=36000,
+        position_fresh=False,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    assert sensor.available
+    assert sensor.is_on is False
+    attrs = sensor.extra_state_attributes
+    assert attrs["position_fresh"] is False
+    assert attrs["position_age_seconds"] == 36000
+    assert attrs["safety_status"] == "at_area"
+
+    tracker = PositionGuardDeviceTracker(coordinator, GROUP_ID, FRED_ID)
+    assert tracker.extra_state_attributes["position_fresh"] is False
+
+
+async def test_stale_with_position_fresh_is_still_unavailable(
+    coordinator, mock_client
+) -> None:
+    """A new server's stale row (position_fresh False) is unavailable exactly
+    as before — the stale rule is unchanged."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=False,
+        safety_status="stale",
+        position_age_seconds=4200,
+        position_fresh=False,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    assert not sensor.available
+
+
+async def test_position_fresh_attribute_present_only_when_sent(
+    coordinator, mock_client
+) -> None:
+    """position_fresh True passes through; an older server's row (no field)
+    leaves the attribute out entirely rather than reporting False."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=True,
+        area_id=HOME_AREA_ID,
+        safety_status="at_area",
+        position_age_seconds=60,
+        position_fresh=True,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    tracker = PositionGuardDeviceTracker(coordinator, GROUP_ID, FRED_ID)
+    assert sensor.extra_state_attributes["position_fresh"] is True
+    assert tracker.extra_state_attributes["position_fresh"] is True
+
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=True,
+        area_id=HOME_AREA_ID,
+        safety_status="at_area",
+        position_age_seconds=60,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+    assert sensor.available
+    assert "position_fresh" not in sensor.extra_state_attributes
+    assert "position_fresh" not in tracker.extra_state_attributes

@@ -232,7 +232,9 @@ class PositionGuardDeviceTracker(CoordinatorEntity[PositionGuardCoordinator], Tr
         # API omits them (server flag off, member muted, public group), and an
         # absent key states "unknown" more honestly than a null would.
         # safety_status: at_area | in_zone | out_of_zone | stale.
-        for key in ("safety_status", "safety_area", "position_age_seconds"):
+        # position_fresh: false while the server holds at_area from a
+        # last-known position; absent from older servers.
+        for key in ("safety_status", "safety_area", "position_age_seconds", "position_fresh"):
             if key in member:
                 attrs[key] = member[key]
         return attrs

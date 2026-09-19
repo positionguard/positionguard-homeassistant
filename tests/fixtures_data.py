@@ -62,6 +62,7 @@ def make_member(
     safety_status: str | None = None,
     safety_area: str | None = None,
     position_age_seconds: int | None = None,
+    position_fresh: bool | None = None,
 ) -> dict[str, Any]:
     """A member record shaped like a GET /groups/{id}/members item."""
     current_area = None
@@ -86,4 +87,8 @@ def make_member(
             record["safety_area"] = safety_area
         if position_age_seconds is not None:
             record["position_age_seconds"] = position_age_seconds
+        # Only servers with the area hold send position_fresh; None = an
+        # older server, and the key stays absent.
+        if position_fresh is not None:
+            record["position_fresh"] = position_fresh
     return record

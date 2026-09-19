@@ -120,6 +120,13 @@ class PositionGuardOutsideUsualArea(
             A phone dying in a pocket must never render as "safe" nor fire an
             outside-zone alarm. The raw status string stays in the attributes.
             Absence of knowledge must never render as "safe".
+
+    Area hold: a server with SAFETY_STATUS_AREA_HOLD keeps at_area through a
+    phone's silence and sends position_fresh false with the true age. That
+    stays available and off — availability follows "stale" only, never
+    position_fresh, or the at_area <-> unavailable flap the hold removes comes
+    back. position_fresh rides in the attributes for automations that need
+    "there right now".
     """
 
     _attr_attribution = ATTRIBUTION
@@ -180,6 +187,8 @@ class PositionGuardOutsideUsualArea(
         # any unavailable entity, instead of the Safe/Unsafe flap a stationary
         # phone produced by dropping to "off". Rare once the server's 50-minute
         # stale threshold lands; when it does show, the phone is genuinely dark.
+        # Deliberately NOT position_fresh: a held at_area (position_fresh false)
+        # stays available, or the hold's flap-free at_area flaps again here.
         return member.get("safety_status") != "stale"
 
     @property
@@ -202,7 +211,9 @@ class PositionGuardOutsideUsualArea(
             "user_id": self._user_id,
             "nickname": member.get("nickname"),
         }
-        for key in ("safety_status", "safety_area", "position_age_seconds"):
+        # position_fresh only when the server sent it (older servers don't):
+        # absent stays absent, never False.
+        for key in ("safety_status", "safety_area", "position_age_seconds", "position_fresh"):
             if key in member:
                 attrs[key] = member[key]
         return attrs
