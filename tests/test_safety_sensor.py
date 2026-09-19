@@ -237,3 +237,29 @@ async def test_position_fresh_attribute_present_only_when_sent(
     assert sensor.available
     assert "position_fresh" not in sensor.extra_state_attributes
     assert "position_fresh" not in tracker.extra_state_attributes
+
+
+async def test_tracker_stays_available_when_stale(coordinator, mock_client) -> None:
+    """Pins what the README points automations at: on a stale member the
+    outside-usual-area sensor goes unavailable (no attributes), but the
+    device tracker stays AVAILABLE and carries safety_status "stale", with
+    position_fresh False (when the server sends it) and the age."""
+    member = make_member(
+        FRED_ID,
+        "Fred",
+        inside=False,
+        safety_status="stale",
+        position_age_seconds=4200,
+        position_fresh=False,
+    )
+    await _refresh_with_member(coordinator, mock_client, member)
+
+    sensor = PositionGuardOutsideUsualArea(coordinator, GROUP_ID, FRED_ID)
+    assert not sensor.available
+
+    tracker = PositionGuardDeviceTracker(coordinator, GROUP_ID, FRED_ID)
+    assert tracker.available
+    attrs = tracker.extra_state_attributes
+    assert attrs["safety_status"] == "stale"
+    assert attrs["position_fresh"] is False
+    assert attrs["position_age_seconds"] == 4200
