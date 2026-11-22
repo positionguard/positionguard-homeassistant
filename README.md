@@ -74,6 +74,15 @@ the entity `unavailable`. To distinguish the two in an automation, check the
 `sharing_status` attribute (`disabled` means the member paused sharing)
 rather than the entity state alone.
 
+**When your own account is paused.** Pausing in the PositionGuard app works
+both ways: nobody sees you, and you don't see others, and that includes this
+integration. While the account that owns the API key is paused, every entity
+keeps the state it last had instead of going `unavailable`, and the log gets
+one info line saying so. Polling continues, and entities update again on the
+first poll after you resume sharing. If Home Assistant restarts during the
+pause there is no earlier state to keep, so the integration waits and sets
+itself up once sharing is resumed.
+
 The integration creates one device per group with all member entities,
 visible under Settings → Devices & Services → PositionGuard:
 

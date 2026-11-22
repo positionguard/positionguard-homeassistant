@@ -3,6 +3,22 @@
 HACS installs from GitHub releases; the version lives in
 `custom_components/positionguard/manifest.json`.
 
+## 0.3.5 — unreleased
+
+- **A paused account no longer makes every entity unavailable.** While the
+  account that owns the API key has sharing paused, PositionGuard answers
+  members, area counts and presence with `409` and the code `OWNER_PAUSED`:
+  a paused account sees nobody, by design. The integration used to treat
+  that as an outage. Now every entity keeps its last state for as long as
+  the pause lasts, one info line is logged when the pause is first seen
+  (not one per poll), and polling goes on, so the first poll after sharing
+  is resumed in the app updates everything and logs one line saying so.
+- Any other error behaves as before, a `409` without that code included:
+  one failed poll is tolerated, the second makes entities unavailable.
+- If Home Assistant starts while the account is paused there is no earlier
+  state to keep, so the entry is reported not ready and Home Assistant
+  retries the setup by itself until sharing is resumed.
+
 ## 0.3.4 — unreleased
 
 - The "outside usual area" binary sensor no longer sets the SAFETY device

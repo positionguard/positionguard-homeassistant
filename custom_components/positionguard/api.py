@@ -21,6 +21,32 @@ class PositionGuardNotFoundError(PositionGuardAPIError):
     """Resource not found or caller not authorized to see it."""
 
 
+class PositionGuardOwnerPausedError(PositionGuardAPIError):
+    """The account that owns the API key has paused sharing (409 OWNER_PAUSED).
+
+    Pause is reciprocal: while it lasts, PositionGuard answers the routes that
+    say where other people are (members, area counts, presence) with this
+    instead of data. It is not a fault and not an outage, and it ends when the
+    owner resumes sharing in the app. Group and area lists still answer.
+    """
+
+
+OWNER_PAUSED_CODE = "OWNER_PAUSED"
+
+
+async def _is_owner_paused(resp: aiohttp.ClientResponse) -> bool:
+    """Whether a 409's body carries the OWNER_PAUSED code.
+
+    Only that code means "paused". Any other 409, or a body that cannot be
+    read, is left to the generic handling.
+    """
+    try:
+        body = await resp.json(content_type=None)
+    except (aiohttp.ClientError, ValueError):
+        return False
+    return isinstance(body, dict) and body.get("code") == OWNER_PAUSED_CODE
+
+
 class PositionGuardClient:
     """Async client for the PositionGuard REST API.
 
@@ -62,6 +88,10 @@ class PositionGuardClient:
                     retry_after = resp.headers.get("Retry-After", "60")
                     raise PositionGuardAPIError(
                         f"rate limit exceeded; retry after {retry_after}s"
+                    )
+                if resp.status == 409 and await _is_owner_paused(resp):
+                    raise PositionGuardOwnerPausedError(
+                        "sharing is paused for the account that owns this API key"
                     )
                 if resp.status >= 500:
                     raise PositionGuardAPIError(f"server error {resp.status}")

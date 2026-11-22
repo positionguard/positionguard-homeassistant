@@ -20,6 +20,7 @@ from .api import (
     PositionGuardAPIError,
     PositionGuardAuthError,
     PositionGuardClient,
+    PositionGuardOwnerPausedError,
 )
 from .const import (
     DEFAULT_SCAN_INTERVAL_SECONDS,
@@ -82,6 +83,9 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Consecutive failed cycles, for transient-failure toleration. Reset to
         # 0 on any success; see _async_update_data / _handle_failed_cycle.
         self._consecutive_failures = 0
+        # True while the key's owner has sharing paused (409 OWNER_PAUSED).
+        # Drives the one INFO line when a pause starts and when it ends.
+        self._owner_paused = False
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch the current data for this poll cycle.
@@ -99,6 +103,9 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
           * A successful payload — including one where a member has paused
             sharing (``sharing_disabled``) — is returned untouched: toleration
             only reacts to exceptions, never to a valid response.
+          * The key's OWNER having paused sharing (409 ``OWNER_PAUSED``) is
+            neither a failure nor data: every entity keeps its last state
+            for as long as the pause lasts. See ``_hold_while_owner_paused``.
         """
         self._update_cycle += 1
         try:
@@ -106,6 +113,8 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except PositionGuardAuthError as err:
             # Never retried or tolerated — raising this triggers HA's reauth.
             raise UpdateFailed(f"authentication failed: {err}") from err
+        except PositionGuardOwnerPausedError as err:
+            return self._hold_while_owner_paused(err)
         except (PositionGuardAPIError, asyncio.TimeoutError) as err:
             # Transient (network / timeout / 5xx / 429 / 404) and still failing
             # after the retry — tolerate this cycle or surface it.
@@ -113,7 +122,45 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
         # Success — clear any failure streak and publish fresh data.
         self._consecutive_failures = 0
+        if self._owner_paused:
+            self._owner_paused = False
+            _LOGGER.info("PositionGuard sharing has resumed; entities are updating again")
         return data
+
+    def _hold_while_owner_paused(self, err: Exception) -> dict[str, Any]:
+        """Keep every entity's last state while the key's owner is paused.
+
+        A paused owner sees nobody, by design, so PositionGuard answers
+        members, area counts and presence with 409 OWNER_PAUSED. Treating
+        that as an outage made every entity unavailable and tripped
+        automations on a pause the user chose. Instead:
+
+          * the last-known data is returned, so entities keep their state and
+            the poll counts as a success (no failure streak, no ERROR);
+          * ONE info line is logged when the pause is first seen, not one per
+            poll; later paused polls log at DEBUG only;
+          * polling goes on at the usual interval, so the first poll after the
+            owner resumes brings fresh data (and one info line saying so).
+
+        On the very first refresh there is nothing to keep, so the entry is
+        reported not ready and Home Assistant retries the setup by itself.
+        """
+        self._consecutive_failures = 0
+        if not self._owner_paused:
+            self._owner_paused = True
+            _LOGGER.info(
+                "PositionGuard sharing is paused for the account that owns this API "
+                "key. Entities keep their last state until sharing is resumed in "
+                "the PositionGuard app"
+            )
+        else:
+            _LOGGER.debug("PositionGuard owner still paused; holding last-known data")
+        if self.data is None:
+            raise UpdateFailed(
+                "sharing is paused for the account that owns this API key, and there "
+                "is no earlier state to keep; resume sharing in the PositionGuard app"
+            ) from err
+        return self.data
 
     async def _fetch_with_retry(self) -> dict[str, Any]:
         """Run one fetch, retrying ONCE after a short backoff on transients.
@@ -127,6 +174,8 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return await self._fetch_once()
         except PositionGuardAuthError:
             raise  # bad credentials — surface now, don't waste a retry
+        except PositionGuardOwnerPausedError:
+            raise  # a pause the owner chose — a retry two seconds later is the same
         except (PositionGuardAPIError, asyncio.TimeoutError) as err:
             _LOGGER.debug(
                 "PositionGuard fetch attempt failed (%s); retrying once in %ss",
@@ -218,6 +267,9 @@ class PositionGuardCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             try:
                 counts_list = await self._client.list_group_area_counts(gid)
                 area_counts = {c["area_id"]: c for c in counts_list}
+            except PositionGuardOwnerPausedError:
+                # Not "counts unavailable this cycle": the whole poll holds.
+                raise
             except (PositionGuardAPIError, asyncio.TimeoutError) as err:
                 _LOGGER.debug(
                     "area-counts fetch failed for group %s (%s); count sensors "
